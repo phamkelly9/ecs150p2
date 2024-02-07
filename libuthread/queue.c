@@ -48,7 +48,6 @@ int queue_destroy(queue_t queue)
 int queue_enqueue(queue_t queue, void *data)
 {
 	struct Node* node = (struct Node*)malloc(sizeof(struct Node*));
-	/* pointer? */
 
 	// return -1 in case of memory allocation error
 	if(node == NULL){
@@ -95,6 +94,8 @@ int queue_dequeue(queue_t queue, void **data)
 		return -1;
 	}
 
+	node->data = data;
+
 	/* Point to front node of queue */
 	node = queue->head->data;
 
@@ -115,6 +116,37 @@ int queue_dequeue(queue_t queue, void **data)
 int queue_delete(queue_t queue, void *data)
 {
 	// no restriction on big-o
+	struct Node* node = (struct Node*)malloc(sizeof(struct Node*));
+
+	/* Checks if queue or data are empty */
+	if ((queue == NULL) || (data == NULL)) {
+		return -1;
+	}
+
+	struct Node *tmp = queue->head;
+	struct Node *prev = queue->head;
+
+
+	/*  */
+	for(int i = 0; i < queue_length; i++) {
+		if (queue->head->data == data) {
+			struct Node *tmp = queue->head;
+			queue->head = queue->head->next;
+			free(tmp);
+		}else {
+			while (node->next != NULL){
+				if (node->next->data == data) {
+					tmp = node->next;
+					node->next = node->next->next;
+					free(tmp);
+					break;
+				} else {
+					node = node->next;
+				}
+			}
+		}	
+	}
+
 }
 
 int queue_iterate(queue_t queue, queue_func_t func)
@@ -130,6 +162,7 @@ int queue_iterate(queue_t queue, queue_func_t func)
 
 	/* Iterate through each node */
 	while(node != NULL) {
+		func(queue, node->data);
 		node = node->next;
 	}
 
