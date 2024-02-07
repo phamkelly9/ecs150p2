@@ -47,7 +47,38 @@ int queue_destroy(queue_t queue)
 
 int queue_enqueue(queue_t queue, void *data)
 {
-	/* TODO Phase 1 */
+	struct Node* node = (struct Node*)malloc(sizeof(struct Node*));
+
+	// return -1 in case of memory allocation error
+	if(node == NULL){
+		return -1;
+	}
+
+	node->data = data;
+
+	// if queue is currently empty, then set current node to head AND tail
+	if(queue->length == 0){
+		queue->head = node;
+		queue->tail = node;
+		
+		node->prev = NULL;
+		node->next = NULL;
+	}
+	else{
+
+		// set current tail to new node's previous node
+		node->prev = queue->tail;
+        node->next = NULL;
+		
+		// set new node to new tail
+        queue->tail->next = node;
+        queue->tail = node;
+    }
+
+    // Increment queue length
+    queue->length++;
+
+    return 0; 
 }
 
 int queue_dequeue(queue_t queue, void **data)
