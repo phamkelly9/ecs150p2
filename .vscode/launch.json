@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/kellypham/Desktop/github/ecs150p2/apps",
+      "program": "/Users/kellypham/Desktop/github/ecs150p2/apps/build/Debug/outDebug"
+    }
+  ]
+}
