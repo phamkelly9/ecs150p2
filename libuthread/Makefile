@@ -2,7 +2,7 @@
 
 lib := libuthread.a
 
-all: $(lib)
+all: $(lib) mythreads README.html
 
 ## TODO: Phase 1
 
@@ -29,3 +29,5 @@ uthread.o: uthread.c priv.h uthread.h queue.h
 
 README.html: README.md
 	pandoc -o README.html README.md
+
+clean: rm -f mythreads READ.html context.o preempt.o queue.o sem.o uthread.o
