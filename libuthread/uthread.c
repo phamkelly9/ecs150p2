@@ -10,6 +10,10 @@
 #include "uthread.h"
 #include "queue.h"
 
+/* Context switch */
+/* Idle thread holds main processes' info, switch into code that's in uthread run */
+/* yield -- dequeueing */
+
 struct uthread_tcb {
 	/* TODO Phase 2 */
 };

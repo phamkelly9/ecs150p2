@@ -1,11 +1,11 @@
 # Target library
-lib := libuthread.a README.html
+lib := libuthread.a
 objs := context.o preempt.o queue.o sem.o uthread.o
 
+AR := ar rcs
 CC	:= gcc
 CFLAGS := -Wall -Wextra -Werror -MMD
 CFLAGS += -g
-PANDOC := pandoc
 
 all: $(lib) 
 
@@ -21,32 +21,13 @@ endif
 deps := $(patsubst %.o,%.d,$(objs))
 -include $(deps)
 
-libuthread.a: ar rcs libuthread.a $(objs)
+$(lib): $(objs)
 	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -o $@ $^
+	$(Q)$(AR) $@ $^
 
-%.o: %.c private.h uthread.h
+%.o: %.c
 	@echo "CC $@"
 	$(Q)$(CC) $(CFLAGS) -c -o $@ $<
-
-%.o: %.c priv.h uthread.h
-	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -c -o$@ $<
-
-%.o: %.c queue.h
-	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -c -o$@ $<
-
-%.o: %.c queue.h sem.h
-	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -c -o$@ $<
-
-%.o: %.c priv.h uthread.h queue.h
-	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -c -o$@ $<
-
-%.html: %.md
-	$(Q)$(PANDOC) -o $@ $<
 
 clean: 
 	$(Q)rm -f $(targets) $(objs) $(deps)
