@@ -1,7 +1,7 @@
 # Target library
 lib := libuthread.a
-objs := context.o preempt.o queue.o sem.o uthread.o
-
+objs := queue.o
+# add preempt.o, context.o, sem.o, uthread.o later
 AR := ar rcs
 CC	:= gcc
 CFLAGS := -Wall -Wextra -Werror -MMD
