@@ -27,7 +27,7 @@ struct uthread_tcb {
 static queue_t queue;
 uthread_ctx_t *idle_context;
 struct uthread_tcb *current_thread;
-
+static queue_t zombie_queue;
 struct uthread_tcb *uthread_current(void)
 {
     return current_thread;
@@ -63,6 +63,7 @@ void uthread_exit(void)
 
 	if(current_thread != NULL && &current_thread->context != idle_context){
 		current_thread->state = ZOMBIE;
+		queue_enqueue(zombie_queue, current_thread);
 		uthread_yield();
 	}
 
@@ -98,11 +99,22 @@ int uthread_create(uthread_func_t func, void *arg)
 	return 0;
 }
 
+void collect_zombie(queue_t queue, void* data)
+{
+	struct uthread_tcb *zombie_thread = malloc(sizeof(struct uthread_tcb));
+	queue_dequeue(queue, (void**)&zombie_thread);
+
+	uthread_ctx_destroy_stack(zombie_thread->sp);
+	free(zombie_thread);
+} 
 
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
 	// create ready queue
 	queue = queue_create();
+
+	// create zombie queueu
+	zombie_queue = queue_create();
 
 	// create idle thread 
 	struct uthread_tcb *idle_thread = malloc(sizeof(struct uthread_tcb));
@@ -120,8 +132,12 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 	// infinite loop until there are no more threads ready to run
 	if(preempt == false){
 		while(queue_length(queue) > 0){
+
 			// delete zombies
-			uthread_yield();
+			if(queue_iterate(zombie_queue, collect_zombie) == -1)
+				return -1;
+
+			uthread_yield();	
 		}
 	}
 
