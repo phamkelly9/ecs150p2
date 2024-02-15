@@ -101,11 +101,12 @@ int uthread_create(uthread_func_t func, void *arg)
 
 void collect_zombie(queue_t queue, void* data)
 {
-	struct uthread_tcb *zombie_thread = malloc(sizeof(struct uthread_tcb));
+    struct uthread_tcb *zombie_thread = (struct uthread_tcb*)data;
 	queue_dequeue(queue, (void**)&zombie_thread);
 
-	uthread_ctx_destroy_stack(zombie_thread->sp);
-	free(zombie_thread);
+	// destroy current thread's stack
+    uthread_ctx_destroy_stack(zombie_thread->sp);
+    free(zombie_thread);
 } 
 
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
@@ -132,14 +133,13 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 	// infinite loop until there are no more threads ready to run
 	if(preempt == false){
 		while(queue_length(queue) > 0){
-
-			// delete zombies
-			if(queue_iterate(zombie_queue, collect_zombie) == -1)
-				return -1;
-
 			uthread_yield();	
 		}
 	}
+
+	// delete zombies
+	if(queue_iterate(zombie_queue, collect_zombie) == -1)
+		return -1;
 
 	return 0; 
 
