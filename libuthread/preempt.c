@@ -27,6 +27,7 @@ void preempt_enable(void)
 
 void preempt_start(bool preempt)
 {
+	(void)preempt;
 	/* TODO Phase 4 */
 }
 

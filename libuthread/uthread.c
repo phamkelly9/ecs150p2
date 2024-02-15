@@ -25,58 +25,47 @@ struct uthread_tcb {
 };
 
 static queue_t queue;
+uthread_ctx_t *idle_context;
+struct uthread_tcb *current_thread;
+
 struct uthread_tcb *uthread_current(void)
-
 {
-	if (queue_length(queue) == 0) {
-        return NULL; 
-    }
-
-    struct uthread_tcb *current_thread;
-
-	queue_dequeue(queue, (void **)&current_thread);
-
-	// returns pointer to current thread 
     return current_thread;
 }
 
 void uthread_yield(void)
 {
 	// get currently active and running thread
-	struct uthread_tcb *current_thread = uthread_current();
-	current_thread->state = READY;
-
+	struct uthread_tcb *yielding_thread = uthread_current();
+	
 	// enqueue back into ready queue
-	if(current_thread->state != BLOCKED)
-    	queue_enqueue(queue, current_thread);
+	if(queue_length(queue) > 0){
+		if(yielding_thread->state == RUNNING){
+			yielding_thread->state = READY;
+			queue_enqueue(queue, yielding_thread);
+		}
 
-	// if queue is just the initial thread, no need to context switch
-	// dequeue next thread at front of ready queue
-	struct uthread_tcb *next_thread; 
-	queue_dequeue(queue, (void**)&next_thread);
-	next_thread->state = RUNNING;
+		// dequeue next thread at front of ready queue
+		struct uthread_tcb *next_thread; 
+		queue_dequeue(queue, (void**)&next_thread);
+		next_thread->state = RUNNING;
+		current_thread = next_thread;
 
-	// perform context switch
-	uthread_ctx_switch(&current_thread->context, &next_thread->context);
-
+		// perform context switch
+		uthread_ctx_switch(&yielding_thread->context, &next_thread->context);
+	}
+	
 }
 
 void uthread_exit(void)
 {
 	struct uthread_tcb *current_thread = uthread_current();
-	struct uthread_tcb *next_thread; 
 
-	// dequeue current thread
-	queue_dequeue(queue, (void**)&next_thread);
+	if(current_thread != NULL && &current_thread->context != idle_context){
+		current_thread->state = ZOMBIE;
+		uthread_yield();
+	}
 
-	current_thread->state = ZOMBIE;
-
-	// context switch next with current 
-	uthread_ctx_switch(&current_thread->context, &next_thread->context);
-	// terminated threads do not need to be inserted back into queue
-	uthread_ctx_destroy_stack(current_thread->sp);
-	free(&current_thread->context);
-	free(current_thread);
 }
 
 int uthread_create(uthread_func_t func, void *arg)
@@ -109,21 +98,31 @@ int uthread_create(uthread_func_t func, void *arg)
 	return 0;
 }
 
+
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
 	// create ready queue
 	queue = queue_create();
 
-	// create initial thread 
-	if (uthread_create(func, arg) == -1){
-		return -1;
-	}
+	// create idle thread 
+	struct uthread_tcb *idle_thread = malloc(sizeof(struct uthread_tcb));
+	void *idle_thread_sp = uthread_ctx_alloc_stack();
+	idle_thread->state = READY;
+	uthread_ctx_t *new_idle_context = malloc(sizeof(uthread_ctx_t));
+	uthread_ctx_init(new_idle_context, idle_thread_sp, func, arg);
+	queue_enqueue(queue, idle_thread);
+	idle_context = new_idle_context;
+	current_thread = idle_thread;
 
-	// uthread_current = idleThread;
+	// create initial thread
+	uthread_create(func, arg);
 
 	// infinite loop until there are no more threads ready to run
-	while(queue_length(queue) != 0){
-		uthread_yield();
+	if(preempt == false){
+		while(queue_length(queue) > 0){
+			// delete zombies
+			uthread_yield();
+		}
 	}
 
 	return 0; 
