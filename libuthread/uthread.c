@@ -5,97 +5,129 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-
 #include "private.h"
 #include "uthread.h"
 #include "queue.h"
-
-/* Context switch */
-/* Idle thread holds main processes' info, switch into code that's in uthread run */
-/* yield -- dequeueing */
-
-/* pull threads out of queue with yield */
+#define UTHREAD_STACK_SIZE 32768
 
 typedef enum {
     READY,
     RUNNING,
     BLOCKED,
-    TERMINATED
+    ZOMBIE
 } t_state;
 
 struct uthread_tcb {
-	/* TODO Phase 2 */
-	int tid; /* Thread ID */
-	void* stack;
-	int STACK_SIZE;
+	uthread_ctx_t context;
+	int size;
 	void* sp;
 	t_state state;
-
 };
 
 static queue_t queue;
 struct uthread_tcb *uthread_current(void)
+
 {
-	/* TODO Phase 2/3 */
 	if (queue_length(queue) == 0) {
         return NULL; 
     }
 
     struct uthread_tcb *current_thread;
-	/* Dequeue front of queue */
-    queue_dequeue(queue, (void **)&current_thread);
-	/* Enqueue back in order */
-    queue_enqueue(queue, current_thread);
-	/* Returns pointer to current thread */ 
+
+	queue_dequeue(queue, (void **)&current_thread);
+
+	// returns pointer to current thread 
     return current_thread;
 }
 
 void uthread_yield(void)
 {
-	/* TODO Phase 2 */
-	/* 1) put current at end of ready queue, dequeue front, context switch */
+	// get currently active and running thread
 	struct uthread_tcb *current_thread = uthread_current();
-	if (current_thread == NULL) {
-        return; 
-    }
-
 	current_thread->state = READY;
-	/* Dequeue current thread and add back to the end of queue */
-	queue_dequeue(queue, (void **)&current_thread);
-	queue_enqueue(queue, current_thread);
-	
-	/* Dequeue front of queue, perform context switch */
+
+	// enqueue back into ready queue
+	if(current_thread->state != BLOCKED)
+    	queue_enqueue(queue, current_thread);
+
+	// if queue is just the initial thread, no need to context switch
+	// dequeue next thread at front of ready queue
+	struct uthread_tcb *next_thread; 
+	queue_dequeue(queue, (void**)&next_thread);
+	next_thread->state = RUNNING;
+
+	// perform context switch
+	uthread_ctx_switch(&current_thread->context, &next_thread->context);
 
 }
 
 void uthread_exit(void)
 {
-	/* TODO Phase 2 */
 	struct uthread_tcb *current_thread = uthread_current();
-	if (current_thread == NULL) {
-        return;
-    }
+	struct uthread_tcb *next_thread; 
 
-	current_thread->state = TERMINATED;
-	queue_delete(queue, current_thread);
-	uthread_yield();
+	// dequeue current thread
+	queue_dequeue(queue, (void**)&next_thread);
+
+	current_thread->state = ZOMBIE;
+
+	// context switch next with current 
+	uthread_ctx_switch(&current_thread->context, &next_thread->context);
+	// terminated threads do not need to be inserted back into queue
+	uthread_ctx_destroy_stack(current_thread->sp);
+	free(&current_thread->context);
+	free(current_thread);
 }
 
 int uthread_create(uthread_func_t func, void *arg)
 {
-	/* TODO Phase 2 */
-	struct uthread_tcb *thread = malloc(sizeof(struct uthread_tcb));
+    struct uthread_tcb *thread = malloc(sizeof(struct uthread_tcb));
+
     if (thread == NULL) {
         return -1; 
     }
-
-	/* Create new thread TID, stack, stack size */
 	
+	// uthread_ctx_alloc_stack() returns a pointer to the top of the stack
+	void *thread_sp = uthread_ctx_alloc_stack();
+
+	if(thread_sp == NULL)
+		return -1;
+
+	thread->state = READY;
+	thread->sp = thread_sp;
+	thread->size = UTHREAD_STACK_SIZE;
+
+	uthread_ctx_t *newContext = malloc(sizeof(uthread_ctx_t));
+
+	// initialize new uthread_ctx_t to be used in the newly created thread
+	if(uthread_ctx_init(newContext, thread->sp, func, arg) == -1)
+		return -1;
+	
+	thread->context = *newContext;
+
+	queue_enqueue(queue, thread);
+	return 0;
 }
 
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
-	/* TODO Phase 2 */
+	// create ready queue
+	queue = queue_create();
+
+	// create initial thread 
+	if (uthread_create(func, arg) == -1){
+		return -1;
+	}
+
+	// uthread_current = idleThread;
+
+	// infinite loop until there are no more threads ready to run
+	while(queue_length(queue) != 0){
+		uthread_yield();
+	}
+
+	return 0; 
+
 }
 
 void uthread_block(void)
@@ -113,4 +145,3 @@ void uthread_unblock(struct uthread_tcb *uthread)
 	uthread->state = READY; /* Set state of current thread to READY */
 	queue_enqueue(queue, uthread);
 }
-
