@@ -14,7 +14,7 @@ struct semaphore {
 sem_t sem_create(size_t count)
 {
 	/* TODO Phase 3 */
-	sem_t* sem = (sem_t*)malloc(sizeof(sem_t));
+	sem_t sem = (sem_t)malloc(sizeof(sem_t));
 
 	sem->count = count;
 
@@ -22,32 +22,52 @@ sem_t sem_create(size_t count)
 		return NULL;
 	}
 
-	return *sem;
+	sem->waiting = queue_create();
+
+	if(sem->waiting == NULL){
+		free(sem);
+		return NULL;
+	}
+
+	return sem;
 
 }
 
 int sem_destroy(sem_t sem)
 {
 	/* TODO Phase 3 */
+
+	if(queue_length(sem->waiting) > 0){
+		return -1;
+	} 
+
+	if(sem == NULL){
+		return -1;
+	}
+
+	queue_destroy(sem->waiting);
+	free(sem);
+
+	return 0;
 }
 
 int sem_down(sem_t sem)
 {
 	/* TODO Phase 3 */
-	spinlock_lock(sem->lock);  
    	while (sem->count == 0) { 
-		//queue 
-      uthread_block();
+		queue_enqueue(sem->waiting, uthread_current());
+      	uthread_block();
    	}  
    	sem->count -= 1;  
-   	spinlock_unlock(sem->lock)
+
+	return 0;
 }
 
 int sem_up(sem_t sem)
 {
 	/* TODO Phase 3 */
-	spinlock_lock(sem->lock); //preempt disable???
-	sem->count++;
+ 	//preempt disable???
+	sem->count +=1;
 
 	if(queue_length(sem->waiting) > 0){
 		struct uthread_tcb *unblocked;
@@ -55,7 +75,6 @@ int sem_up(sem_t sem)
 		uthread_unblock(unblocked);
 	}
 
-	spinlock_unlock(sem->lock);
 	//enable
 	return 0;
 }
