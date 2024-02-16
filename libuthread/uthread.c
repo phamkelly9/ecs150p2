@@ -39,8 +39,7 @@ void uthread_yield(void)
 	// get currently active and running thread
 	struct uthread_tcb *yielding_thread = uthread_current();
 	
-	if(queue_length(queue) > 0)
-	{
+	if(queue_length(queue) > 0){
 		// enqueue current thread back into ready queue
 		if(yielding_thread->state == RUNNING){
 			yielding_thread->state = READY;
@@ -63,13 +62,10 @@ void uthread_exit(void)
 {
 	struct uthread_tcb *current_thread = uthread_current();
 
-	if(current_thread != NULL && &current_thread->context != idle_context)
-	{
+	if(current_thread != NULL && &current_thread->context != idle_context){
 		current_thread->state = ZOMBIE;
-
 		// add thread to zombie queue for cleanup at the end of thread_run()
 		queue_enqueue(zombie_queue, current_thread);
-
 		uthread_yield();
 	}
 
@@ -135,7 +131,7 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
         return -1;
 
     // create idle thread 
-    struct uthread_tcb*idle_thread = malloc(sizeof(struct uthread_tcb));
+    struct uthread_tcb *idle_thread = malloc(sizeof(struct uthread_tcb));
 
     if(idle_thread == NULL)
         return -1;

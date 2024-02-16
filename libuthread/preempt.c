@@ -57,9 +57,8 @@ void preempt_enable(void)
 void preempt_start(bool preempt)
 {
 	
-	if(preempt) {
+	if(preempt)
 		preempt_enable();
-	}
 
 	struct sigaction curr_sa;
     struct itimerval curr_timer;
