@@ -27,7 +27,6 @@ struct uthread_tcb {
 static queue_t queue;
 uthread_ctx_t *idle_context;
 struct uthread_tcb *current_thread;
-static queue_t zombie_queue;
 bool preempt;
 
 struct uthread_tcb *uthread_current(void)
@@ -42,6 +41,7 @@ void uthread_yield(void)
 	
 	if(queue_length(queue) > 0 && yielding_thread != NULL){
 		preempt_disable();
+		
 		// enqueue current thread back into ready queue
 		if(yielding_thread->state == RUNNING){
 			yielding_thread->state = READY;
@@ -56,6 +56,7 @@ void uthread_yield(void)
 
 		// perform context switch
 		uthread_ctx_switch(&yielding_thread->context, &next_thread->context);
+
 		preempt_enable();
 	}
 	
@@ -66,11 +67,13 @@ void uthread_exit(void)
 {
 	struct uthread_tcb *current_thread = uthread_current();
 
-
 	if(current_thread != NULL && &current_thread->context != idle_context){
 		current_thread->state = ZOMBIE;
-		// add thread to zombie queue for cleanup at the end of thread_run()
-		queue_enqueue(zombie_queue, current_thread);
+
+		// clean up zombie thread
+		uthread_ctx_destroy_stack(current_thread->sp);
+    	free(current_thread);
+
 		uthread_yield();
 	}
 }
@@ -112,29 +115,12 @@ int uthread_create(uthread_func_t func, void *arg)
 	return 0;
 }
 
-// iterate through each thread in zombie queue to destroy
-void collect_zombie(queue_t queue, void* data)
-{
-    struct uthread_tcb *zombie_thread = (struct uthread_tcb*)data;
-	queue_dequeue(queue, (void**)&zombie_thread);
-
-	// destroy current thread's stack
-    uthread_ctx_destroy_stack(zombie_thread->sp);
-    free(zombie_thread);
-} 
-
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
     // create ready queue
     queue = queue_create();
 
     if(queue == NULL)
-        return -1;
-
-    // create zombie queue
-    zombie_queue = queue_create();
-
-    if(zombie_queue == NULL)
         return -1;
 
     // create idle thread 
@@ -167,10 +153,6 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
     while(queue_length(queue) > 0)
         uthread_yield();
 
-    // delete zombies
-    if(queue_iterate(zombie_queue, collect_zombie) == -1)
-        return -1;
-
     if(preempt)
         preempt_stop();
 
@@ -191,7 +173,7 @@ void uthread_block(void)
 void uthread_unblock(struct uthread_tcb *uthread)
 {
 	if(uthread != NULL){
-		uthread->state = READY; /* Set state of current thread to READY */
+		uthread->state = READY;
 		queue_enqueue(queue, uthread);
 	}
 }
