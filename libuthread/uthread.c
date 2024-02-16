@@ -122,55 +122,57 @@ void collect_zombie(queue_t queue, void* data)
 
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
-	// create ready queue
-	queue = queue_create();
+    // create ready queue
+    queue = queue_create();
 
-	if(queue == NULL)
-		return -1;
+    if(queue == NULL)
+        return -1;
 
-	// create zombie queue
-	zombie_queue = queue_create();
+    // create zombie queue
+    zombie_queue = queue_create();
 
-	if(zombie_queue == NULL)
-		return -1;
+    if(zombie_queue == NULL)
+        return -1;
 
-	// create idle thread 
-	struct uthread_tcb *idle_thread = malloc(sizeof(struct uthread_tcb));
+    // create idle thread 
+    struct uthread_tcb*idle_thread = malloc(sizeof(struct uthread_tcb));
 
-	if(idle_thread == NULL)
-		return -1;
+    if(idle_thread == NULL)
+        return -1;
 
-	void *idle_thread_sp = uthread_ctx_alloc_stack();
-	idle_thread->state = READY;
-	uthread_ctx_t *new_idle_context = malloc(sizeof(uthread_ctx_t));
+    void *idle_thread_sp = uthread_ctx_alloc_stack();
+    idle_thread->state = READY;
+    uthread_ctx_t *new_idle_context = malloc(sizeof(uthread_ctx_t));
 
-	if(uthread_ctx_init(new_idle_context, idle_thread_sp, func, arg) == -1)
-		return -1;
-	
-	if(queue_enqueue(queue, idle_thread) == -1)
-		return -1;
-	
-	idle_context = new_idle_context;
-	current_thread = idle_thread;
+    if(uthread_ctx_init(new_idle_context, idle_thread_sp, func, arg) == -1)
+        return -1;
 
-	// create initial thread
-	if(uthread_create(func, arg) == -1)
-		return -1;
+    if(queue_enqueue(queue, idle_thread) == -1)
+        return -1;
 
-	// infinite loop until there are no more threads ready to run
-	if(preempt == false)
-	{
-		while(queue_length(queue) > 0)
-		{
-			uthread_yield();	
-		}
-	}
+    idle_context = new_idle_context;
+    current_thread = idle_thread;
 
-	// delete zombies
-	if(queue_iterate(zombie_queue, collect_zombie) == -1)
-		return -1;
+    // create initial thread
+    if(uthread_create(func, arg) == -1)
+        return -1;
 
-	return 0; 
+    preempt_start(preempt);
+
+    // infinite loop until there are no more threads ready to run
+    while(queue_length(queue) > 0)
+    {
+        uthread_yield();
+    }
+
+    // delete zombies
+    if(queue_iterate(zombie_queue, collect_zombie) == -1)
+        return -1;
+
+    if(preempt)
+        preempt_stop();
+
+    return 0; 
 
 }
 

@@ -17,37 +17,74 @@
 
 
 struct sigaction sa;
+struct itimerval timer;
 
-sigaddset(&sa, SIGVTALRM);
-sigaction(SIGVTALRM, &sa, NULL);
-ITIMER_VIRTUAL
+// sigaddset(&sa, SIGVTALRM);
+// sigaction(SIGVTALRM, &sa, NULL);
+// ITIMER_VIRTUAL
 
-
+void handler(int signum) {
+    (void) signum;
+	// Force currently running thread to yield
+    uthread_yield(); 
+}
 
 void preempt_disable(void)
 {
-	/* TODO Phase 4 */
-	sigaddset(&sa, SIGVTALRM);
-	// sigemptyset addset, procmask to block signals
+    sigset_t set;
 
+    // Initialize an empty signal set to SIGVTALRM
+    sigemptyset(&set);
+    sigaddset(&set, SIGVTALRM);
+
+    // unblock thread 
+    sigprocmask(SIG_BLOCK, &set, NULL);
 }
 
 void preempt_enable(void)
 {
-	/* TODO Phase 4 */
-	// sigemptyset, unblock
+	sigset_t set;
+
+    // Initialize an empty signal set to SIGVTALRM
+    sigemptyset(&set);
+    sigaddset(&set, SIGVTALRM);
+
+    // unblock thread 
+    sigprocmask(SIG_UNBLOCK, &set, NULL);
 
 }
 
 void preempt_start(bool preempt)
 {
-	(void)preempt;
-	/* TODO Phase 4 */
-	// set up signal action struct 
+	
+	if(preempt) {
+		preempt_enable();
+	}
+
+	struct sigaction curr_sa;
+    struct itimerval curr_timer;
+
+    // Set up the signal handler for SIGVTALRM
+    curr_sa.sa_handler = handler;
+    sigemptyset(&curr_sa.sa_mask);
+    curr_sa.sa_flags = 0;
+    sigaction(SIGVTALRM, &curr_sa, &sa);
+
+    // Configure the timer to fire at 100 Hz
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = HZ * 100; 
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = HZ * 100; 
+
+    setitimer(ITIMER_VIRTUAL, &curr_timer, &timer);
+
 }
 
 void preempt_stop(void)
 {
 	/* TODO Phase 4 */
+	sigaction(SIGPROF, &sa, NULL);
+
+	setitimer(ITIMER_VIRTUAL, &timer, NULL);
 }
 
