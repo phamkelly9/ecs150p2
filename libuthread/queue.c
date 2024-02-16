@@ -56,7 +56,7 @@ int queue_enqueue(queue_t queue, void *data)
 	
 
 	node->data = data;
-
+	// printf("%p\n",&queue->length);
 	// if queue is currently empty, then set current node to head AND tail
 	if(queue->length == 0){
 		queue->head = node;

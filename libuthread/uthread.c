@@ -28,6 +28,7 @@ static queue_t queue;
 uthread_ctx_t *idle_context;
 struct uthread_tcb *current_thread;
 static queue_t zombie_queue;
+bool preempt;
 
 struct uthread_tcb *uthread_current(void)
 {
@@ -39,7 +40,8 @@ void uthread_yield(void)
 	// get currently active and running thread
 	struct uthread_tcb *yielding_thread = uthread_current();
 	
-	if(queue_length(queue) > 0){
+	if(queue_length(queue) > 0 && yielding_thread != NULL){
+		preempt_disable();
 		// enqueue current thread back into ready queue
 		if(yielding_thread->state == RUNNING){
 			yielding_thread->state = READY;
@@ -54,7 +56,9 @@ void uthread_yield(void)
 
 		// perform context switch
 		uthread_ctx_switch(&yielding_thread->context, &next_thread->context);
+		preempt_enable();
 	}
+	
 	
 }
 
@@ -62,13 +66,13 @@ void uthread_exit(void)
 {
 	struct uthread_tcb *current_thread = uthread_current();
 
+
 	if(current_thread != NULL && &current_thread->context != idle_context){
 		current_thread->state = ZOMBIE;
 		// add thread to zombie queue for cleanup at the end of thread_run()
 		queue_enqueue(zombie_queue, current_thread);
 		uthread_yield();
 	}
-
 }
 
 int uthread_create(uthread_func_t func, void *arg)
@@ -99,9 +103,12 @@ int uthread_create(uthread_func_t func, void *arg)
 	
 	thread->context = *newContext;
 
+	preempt_disable();
+
 	if(queue_enqueue(queue, thread) == -1)
 		return -1;
-
+	
+	preempt_enable();
 	return 0;
 }
 
@@ -153,13 +160,12 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
     if(uthread_create(func, arg) == -1)
         return -1;
 
-    preempt_start(preempt);
+    if(preempt)
+        preempt_start(preempt);
 
     // infinite loop until there are no more threads ready to run
     while(queue_length(queue) > 0)
-    {
         uthread_yield();
-    }
 
     // delete zombies
     if(queue_iterate(zombie_queue, collect_zombie) == -1)
@@ -174,16 +180,18 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 
 void uthread_block(void)
 {
-	/* TODO Phase 3 */
 	struct uthread_tcb *current_thread = uthread_current();
-	current_thread->state = BLOCKED;
-	uthread_yield();
 
+	if(current_thread != NULL){
+		current_thread->state = BLOCKED;
+		uthread_yield();
+	}
 }
 
 void uthread_unblock(struct uthread_tcb *uthread)
 {
-	/* TODO Phase 3 */
-	uthread->state = READY; /* Set state of current thread to READY */
-	queue_enqueue(queue, uthread);
+	if(uthread != NULL){
+		uthread->state = READY; /* Set state of current thread to READY */
+		queue_enqueue(queue, uthread);
+	}
 }

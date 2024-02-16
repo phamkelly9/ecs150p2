@@ -50,8 +50,10 @@ int sem_down(sem_t sem)
 		return -1;
 		
    	while (sem->count == 0) { 
+		preempt_disable();
 		queue_enqueue(sem->waiting, uthread_current());
       	uthread_block();
+		preempt_enable();
    	}  
 
    	sem->count -= 1;  
@@ -64,17 +66,16 @@ int sem_up(sem_t sem)
 	if(sem == NULL)
 		return -1;
 
- 	//preempt disable???
-	
 	sem->count +=1;
 
 	if(queue_length(sem->waiting) > 0){
 		struct uthread_tcb *unblocked;
+		preempt_disable();
 		queue_dequeue(sem->waiting, (void**)&unblocked);
 		uthread_unblock(unblocked);
 	}
 
-	//enable
+	preempt_enable();
 	return 0;
 }
 

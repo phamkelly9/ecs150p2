@@ -1,49 +1,62 @@
-/* Thread creation and yielding test*
-Tests the creation of multiples threads and the fact that a parent thread
-should get returned to before its child is executed. The way the printing,
-thread creation and yielding is done, the program should output:
-*
-thread1
-thread2
-thread3
+/*
+ * Semaphore simple test
+ *
+ * Test the synchronization of three threads, by having them print messages in
+ * a certain order.
+ */
 
-*/
-
-#include <stdbool.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <sem.h>
 #include <uthread.h>
 
-void thread3(void *arg)
-{
-    (void)arg;
+sem_t sem1;
+sem_t sem2;
+sem_t sem3;
 
-    uthread_yield();
-    printf("thread3\n");
+static void thread3(void *arg)
+{
+	(void)arg;
+
+	sem_down(sem3);		/* Wait for thread1 */
+	printf("thread3\n");
+	sem_up(sem2);		/* Unblock thread2 */
 }
 
-void thread2(void *arg)
+static void thread2(void *arg)
 {
-    (void)arg;
+	(void)arg;
 
-    uthread_create(thread3, NULL);
-    uthread_yield();
-    printf("thread2\n");
+	sem_down(sem2);		/* Wait for thread 3 */
+	printf("thread2\n");
+	sem_up(sem1);		/* Unblock thread1 */
 }
 
-void thread1(void *arg)
+static void thread1(void *arg)
 {
-    (void)arg;
+	(void)arg;
 
-    uthread_create(thread2, NULL);
-    uthread_yield();
-    printf("thread1\n");
-    uthread_yield();
+	uthread_create(thread2, NULL);
+	uthread_create(thread3, NULL);
+
+	sem_up(sem3);		/* Unblock thread 3 */
+	sem_down(sem1); 	/* Wait for thread 2 */
+	printf("thread1\n");
 }
 
 int main(void)
 {
-    uthread_run(true, thread1, NULL);
-    return 0;
+	sem1 = sem_create(0);
+	sem2 = sem_create(0);
+	sem3 = sem_create(0);
+
+	uthread_run(true, thread1, NULL);
+
+	sem_destroy(sem1);
+	sem_destroy(sem2);
+	sem_destroy(sem3);
+
+	return 0;
 }
