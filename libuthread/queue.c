@@ -51,9 +51,9 @@ int queue_enqueue(queue_t queue, void *data)
 	struct Node* node = (struct Node*)malloc(sizeof(struct Node*));
 
 	// return -1 if memory allocation error, or if queue and data are NULL
-	if(node == NULL || queue == NULL || data == NULL){
+	if(node == NULL || queue == NULL || data == NULL)
 		return -1;
-	}
+	
 
 	node->data = data;
 
@@ -105,14 +105,15 @@ int queue_delete(queue_t queue, void *data)
 	struct Node *previous = NULL;
 
 	// loop until node with matching data is freed
-	while (current != NULL) {
-		if (current->data == data) {
+	while (current != NULL) 
+	{
+		if (current->data == data) 
+		{
 			// check if matching node is the head
-			if (previous == NULL) {
+			if (previous == NULL) 
 				queue->head = current->next;
-			} else {
+			else 
 				previous->next = current->next;
-			}
 
 			// delete node with matching data
 			free(current);
@@ -148,7 +149,8 @@ int queue_iterate(queue_t queue, queue_func_t func)
 	struct Node *node = queue->head;
 
 	// Iterate through each node 
-	while(node != NULL) {
+	while(node != NULL) 
+	{
 		void* a = node->data;
 		node = node->next;
 		func(queue, a);
