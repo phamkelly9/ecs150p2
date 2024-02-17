@@ -74,14 +74,14 @@ void preempt_start(bool preempt)
         timer.it_interval.tv_sec = 0;
         timer.it_interval.tv_usec = HZ * 100; 
 
-        setitimer(ITIMER_VIRTUAL, &curr_timer, &timer);
+        setitimer(ITIMER_VIRTUAL, &timer, &curr_timer);
     }
 }
 
 void preempt_stop(void)
 {
     if(isPreemptEnabled){
-        sigaction(SIGPROF, &sa, NULL);
+        sigaction(SIGVTALRM, &sa, NULL);
         setitimer(ITIMER_VIRTUAL, &timer, NULL);
         isPreemptEnabled = false;
     }

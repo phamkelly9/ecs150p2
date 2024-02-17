@@ -60,5 +60,6 @@
     "__node_handle": "c",
     "private.h": "c",
     "queue.h": "c"
-  }
+  },
+  "editor.wordWrap": "wordWrapColumn"
 }
