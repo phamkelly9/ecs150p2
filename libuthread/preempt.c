@@ -12,6 +12,7 @@
  * Frequency of preemption
  * 100Hz is 100 times per second
  */
+
 #define HZ 100
 
 
@@ -22,20 +23,20 @@ sigset_t ss;
 
 struct itimerval old_timer;
 struct itimerval timer;
+
 bool isPreemptEnabled = false;
 
 void handler(int signum) {
     (void) signum;
+
 	// Force currently running thread to yield
-    printf("got here\n");
     uthread_yield();
 }
 
 void preempt_disable(void)
 {
     if(isPreemptEnabled == true){
-
-        // unblock thread 
+        // block thread 
         sigprocmask(SIG_BLOCK, &ss, NULL);
     }
 }
@@ -43,9 +44,6 @@ void preempt_disable(void)
 void preempt_enable(void)
 {
     if(isPreemptEnabled == true){
-
-        // Initialize an empty signal set to SIGVTALRM
-
         // unblock thread 
         sigprocmask(SIG_UNBLOCK, &ss, NULL);
     }

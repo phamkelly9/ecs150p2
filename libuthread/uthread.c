@@ -24,7 +24,7 @@ struct uthread_tcb {
 	t_state state;
 };
 
-static queue_t queue;
+static queue_t ready_queue;
 uthread_ctx_t *idle_context;
 struct uthread_tcb *current_thread;
 bool preempt;
@@ -39,18 +39,18 @@ void uthread_yield(void)
 	// get currently active and running thread
 	struct uthread_tcb *yielding_thread = uthread_current();
 	
-	if(queue_length(queue) > 0 && yielding_thread != NULL){
+	if(queue_length(ready_queue) > 0 && yielding_thread != NULL){
 		preempt_disable();
 		
 		// enqueue current thread back into ready queue
 		if(yielding_thread->state == RUNNING){
 			yielding_thread->state = READY;
-			queue_enqueue(queue, yielding_thread);
+			queue_enqueue(ready_queue, yielding_thread);
 		}
 
 		// dequeue next thread at front of ready queue
 		struct uthread_tcb *next_thread; 
-		queue_dequeue(queue, (void**)&next_thread);
+		queue_dequeue(ready_queue, (void**)&next_thread);
 		next_thread->state = RUNNING;
 		current_thread = next_thread;
 
@@ -108,7 +108,7 @@ int uthread_create(uthread_func_t func, void *arg)
 
 	preempt_disable();
 
-	if(queue_enqueue(queue, thread) == -1)
+	if(queue_enqueue(ready_queue, thread) == -1)
 		return -1;
 	
 	preempt_enable();
@@ -118,9 +118,9 @@ int uthread_create(uthread_func_t func, void *arg)
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
     // create ready queue
-    queue = queue_create();
+    ready_queue = queue_create();
 
-    if(queue == NULL)
+    if(ready_queue == NULL)
         return -1;
 
     // create idle thread 
@@ -136,7 +136,7 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
     if(uthread_ctx_init(new_idle_context, idle_thread_sp, func, arg) == -1)
         return -1;
 
-    if(queue_enqueue(queue, idle_thread) == -1)
+    if(queue_enqueue(ready_queue, idle_thread) == -1)
         return -1;
 
     idle_context = new_idle_context;
@@ -150,7 +150,7 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
         preempt_start(preempt);
 
     // infinite loop until there are no more threads ready to run
-    while(queue_length(queue) > 0)
+    while(queue_length(ready_queue) > 0)
         uthread_yield();
 
     if(preempt)
@@ -174,6 +174,6 @@ void uthread_unblock(struct uthread_tcb *uthread)
 {
 	if(uthread != NULL){
 		uthread->state = READY;
-		queue_enqueue(queue, uthread);
+		queue_enqueue(ready_queue, uthread);
 	}
 }

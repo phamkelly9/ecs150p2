@@ -41,7 +41,7 @@ int queue_destroy(queue_t queue)
 		return 0;
 	}
 
-	// handle @queue is NULL or @queue is not empty case
+	// return -1 if queue is NULL or queue is not empty
 	else
 		return -1;
 }
